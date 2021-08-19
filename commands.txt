@@ -17,4 +17,4 @@ export peer_org2="--peerAddresses localhost:9051 --tlsRootCertFiles ${PWD}/organ
 
 peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"createBid","Args":["1","100"]}'
 
-peer chaincode query -C mychannel -n balance_transfer9 -c '{"function":"listAccounts", "Args":[]}'
+peer chaincode query -C mychannel -n auction -c '{"function":"listAccounts", "Args":[]}'

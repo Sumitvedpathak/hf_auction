@@ -46,7 +46,8 @@ class AuctionContract extends Contract {
         const asset = {
             id:id,
             name:assetName,
-            seller:ctx.clientIdentity.getMSPID(),
+            seller:ctx.clientIdentity.getID(),
+            organization: ctx.clientIdentity.getMSPID(),
             status:AssetStatus.SALE,
             minimumBid:lowestValue
         };
@@ -60,6 +61,10 @@ class AuctionContract extends Contract {
         if(!asset.Exists){
             throw new Error("Asset Id does not exists");
         }
+        if(ctx.clientIdentity.getID() !== asset.Asset.seller) {
+            throw new Error('Not authorize to withdraw. Only Sellet is authorized to withdraw')
+        }
+
         asset.Asset.status = AssetStatus.WITHDRAW;
         await this._putState(ctx, StateType.ASSET, asset.Asset);
     }

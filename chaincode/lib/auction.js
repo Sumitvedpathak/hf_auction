@@ -13,30 +13,34 @@ const AssetStatus = Object.freeze({
 class AuctionContract extends Contract {
 
 
-    async bid(ctx,assetId,value){
+    async bid(ctx, id, assetId, value){
 
         console.log('Executing Bid function');
-        const asset = JSON.parse(this._getAsset(ctx,assetId));
+        // const asset = this.getListsFor(ctx,StateType.ASSET);
+        const assetObj = await this._getAsset(ctx, assetId);
+
+
+        const asset = JSON.parse(assetObj);
 
         if(Object.keys(asset).length === 0){
-            return new Error(`Asset with ${assetId} does not exists`);
+            throw new Error(`Asset with ${assetId} does not exists`);
         }
 
-        console.log('Asset = '+asset);
-
         if(ctx.clientIdentity.getID() === asset.seller) {
-            return new Error(`Asset Owner cannot bid for its own Asset`);
+            throw new Error(`Asset Owner cannot bid for its own Asset`);
         }
 
         if(value < asset.minimumBid){
-            return new Error(`Asset starting bid value is ${asset.minimumBid}. Cannot be less than that.`)
+            throw new Error(`Asset starting bid value is ${asset.minimumBid}. Cannot be less than that.`)
         }
 
         const bid = {
+            id: id,
             assetId:assetId,
             bidder : ctx.clientIdentity.getMSPID(),
             value : value
         };
+
         console.log('Bid - '+bid);
 
         await this._putState(ctx, StateType.BID, bid);
@@ -77,7 +81,6 @@ class AuctionContract extends Contract {
 
     async  getListsFor(ctx,stateType){
         const objType = (stateType.toLowerCase() === StateType.ASSET) ? assetObjectType : bidObjectType;
-        console.log(objType);
         const iterator = ctx.stub.getStateByPartialCompositeKey(objType,[]);
 
         let result = [];
@@ -90,19 +93,14 @@ class AuctionContract extends Contract {
     }
 
     async _getAsset(ctx, id){
-        console.log('Executing _getAsset');
         const iterator = ctx.stub.getStateByPartialCompositeKey(assetObjectType,[]);
-        console.log(iterator);
-        let asset = null;
+        let asset;
         for await(const itr of iterator) {
-            const assetObj = JSON.parse(itr.value.toString('utf8'));
-            console.log('Asset - '+ assetObj)
+            const assetObj = JSON.parse(itr.value.toString());
             if(assetObj.id === id){
                 asset = assetObj;
-                console.log('Found asset - '+ asset)
-            }
+            } 
         }
-        console.log('Asset from _getAsset - '+asset);
         return JSON.stringify(asset);
     }
 

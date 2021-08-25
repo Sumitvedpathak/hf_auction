@@ -29,7 +29,7 @@ peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org
 
 peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"getListsFor","Args":["Asset"]}'
 
-peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"bid","Args":["1","55"]}'
+peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"bid","Args":["1","1","55"]}'
 
 peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"withDrawAsset","Args":["1"]}'
 

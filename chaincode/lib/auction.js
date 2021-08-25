@@ -1,5 +1,5 @@
 'use strict';
-const Helper = require('./helpers');
+const Helper = require('./bid');
 const { Contract } = require('fabric-contract-api');
 
 const bidObjectType = "bidObjType";
@@ -11,7 +11,6 @@ const AssetStatus = Object.freeze({
 });
 
 class AuctionContract extends Contract {
-
 
     async bid(ctx, id, assetId, value){
 
@@ -37,14 +36,12 @@ class AuctionContract extends Contract {
         const bid = {
             id: id,
             assetId:assetId,
-            bidder : ctx.clientIdentity.getMSPID(),
+            bidder : ctx.clientIdentity.getID(),
             value : value
         };
 
-        console.log('Bid - '+bid);
-
         await this._putState(ctx, StateType.BID, bid);
-        console.log("Bid Created Successfully!");
+        return "Bid Created Successfully!";
     }
 
     async addAsset(ctx,id, assetName, lowestValue){
@@ -64,6 +61,7 @@ class AuctionContract extends Contract {
 
         const assetCompKey = ctx.stub.createCompositeKey(assetObjectType,[asset.id]);
         await this._putState(ctx, StateType.ASSET, asset);
+        return `Asset ${id} added Successfully!`;
     }
 
     async withDrawAsset(ctx, id){
@@ -77,6 +75,7 @@ class AuctionContract extends Contract {
 
         asset.Asset.status = AssetStatus.WITHDRAW;
         await this._putState(ctx, StateType.ASSET, asset.Asset);
+        return `Asset ${id} withdrawn Successfully from bid!`;
     }
 
     async  getListsFor(ctx,stateType){

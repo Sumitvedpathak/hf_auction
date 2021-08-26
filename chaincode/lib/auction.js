@@ -37,10 +37,12 @@ class AuctionContract extends Contract {
             id: id,
             assetId:assetId,
             bidder : ctx.clientIdentity.getID(),
+            organization: ctx.clientIdentity.getMSPID(),
             value : value
         };
 
-        await this._putState(ctx, StateType.BID, bid);
+        const collStr = this._getCollectionName(asset.organization, bid.organization);
+        await this._putState(ctx, StateType.BID, bid, collStr);
         return "Bid Created Successfully!";
     }
 
@@ -103,13 +105,17 @@ class AuctionContract extends Contract {
         return JSON.stringify(asset);
     }
 
-    async _putState(ctx, stateType, obj) {
+    async _putState(ctx, stateType, obj, collString = '') {
         const objType = (stateType === StateType.ASSET) ? assetObjectType : bidObjectType;
         console.log(objType);
         const compKey = ctx.stub.createCompositeKey(objType, [obj.id]);
         const stateObj = Buffer.from(JSON.stringify(obj));
         console.log("Composite Key - " + compKey + ", Value - " + stateObj);
-        await ctx.stub.putState(compKey,stateObj);
+        if(collString === '') {
+            await ctx.stub.putState(compKey,stateObj);
+        } else {
+            await ctx.stub.putPrivateData(collString, compKey,stateObj);
+        }
     }
 
     async _isAssetExist(ctx, id){
@@ -126,6 +132,10 @@ class AuctionContract extends Contract {
             }
         }
         return {Exists : existsFlg, Asset: asset};
+    }
+
+    _getCollectionName(org1, org2) {
+        return [org1,org2].sort().join('-');
     }
 
 }

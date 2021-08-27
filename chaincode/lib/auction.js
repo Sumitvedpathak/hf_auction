@@ -10,25 +10,23 @@ const AssetStatus = Object.freeze({
     SALE: "Sale", SOLD: "Sold", WITHDRAW: "Withdraw"
 });
 
+const Participents = ["Org1","Org2","Org3"];
+
 class AuctionContract extends Contract {
 
     async bid(ctx, id, assetId, value){
 
         console.log('Executing Bid function');
-        // const asset = this.getListsFor(ctx,StateType.ASSET);
-        const assetObj = await this._getAsset(ctx, assetId);
 
-
-        const asset = JSON.parse(assetObj);
-
-        if(Object.keys(asset).length === 0){
-            throw new Error(`Asset with ${assetId} does not exists`);
+        const assetFlg = await this._isAssetExist(ctx, id)
+        if(!assetFlg){
+            throw new Error("Asset Id already exists");
         }
 
+        const asset = await this._getAsset(ctx, assetId);
         if(ctx.clientIdentity.getID() === asset.seller) {
             throw new Error(`Asset Owner cannot bid for its own Asset`);
         }
-
         if(value < asset.minimumBid){
             throw new Error(`Asset starting bid value is ${asset.minimumBid}. Cannot be less than that.`)
         }
@@ -38,6 +36,7 @@ class AuctionContract extends Contract {
             assetId:assetId,
             bidder : ctx.clientIdentity.getID(),
             organization: ctx.clientIdentity.getMSPID(),
+            assetOrg : asset.organization,
             value : value
         };
 
@@ -47,8 +46,8 @@ class AuctionContract extends Contract {
     }
 
     async addAsset(ctx,id, assetName, lowestValue){
-        const assetObj = await this._isAssetExist(ctx, id)
-        if(assetObj.Exists){
+        const assetFlg = await this._isAssetExist(ctx, id)
+        if(assetFlg){
             throw new Error("Asset Id already exists");
         }
 
@@ -67,10 +66,13 @@ class AuctionContract extends Contract {
     }
 
     async withDrawAsset(ctx, id){
-        const asset = await this._isAssetExist(ctx, id)
-        if(!asset.Exists){
+        const assetFlg = await this._isAssetExist(ctx, id)
+        if(!assetFlg){
             throw new Error("Asset Id does not exists");
         }
+
+        const asset = await this._getAsset(ctx, id);
+
         if(ctx.clientIdentity.getID() !== asset.Asset.seller) {
             throw new Error('Not authorize to withdraw. Only Sellet is authorized to withdraw')
         }
@@ -80,10 +82,9 @@ class AuctionContract extends Contract {
         return `Asset ${id} withdrawn Successfully from bid!`;
     }
 
-    async  getListsFor(ctx,stateType){
-        const objType = (stateType.toLowerCase() === StateType.ASSET) ? assetObjectType : bidObjectType;
-        const iterator = ctx.stub.getStateByPartialCompositeKey(objType,[]);
-
+    async  getAssetLists(ctx){
+        let iterator = ctx.stub.getStateByPartialCompositeKey(assetObjectType,[]);
+        
         let result = [];
         for await(const itr of iterator) {
             const bidVal = JSON.parse(itr.value.toString('utf8'));
@@ -93,45 +94,71 @@ class AuctionContract extends Contract {
         return JSON.stringify(result);
     }
 
-    async _getAsset(ctx, id){
-        const iterator = ctx.stub.getStateByPartialCompositeKey(assetObjectType,[]);
-        let asset;
-        for await(const itr of iterator) {
-            const assetObj = JSON.parse(itr.value.toString());
-            if(assetObj.id === id){
-                asset = assetObj;
-            } 
+    async  getBidLists(ctx){
+        let result = [];
+        for (let i = 0; i < Participents.length; i++) {
+            if(ctx.clientIdentity.getMSPID() === Participents[i]+'MSP') {
+                continue;
+            }
+            const collStr = this._getCollectionName(ctx.clientIdentity.getMSPID(),Participents[i]+'MSP');
+            console.log('Collection String for - '+collStr);
+            let iterator  = ctx.stub.getPrivateDataByPartialCompositeKey(collStr,bidObjectType,[]);
+            for await(const itr of iterator) {
+                const bidVal = JSON.parse(itr.value.toString('utf8'));
+                if(ctx.clientIdentity.getMSPID() === bidVal.assetOrg) {
+                    console.log('Bid Object - '+ bidVal);
+                    result.push(bidVal);
+                }
+            }
         }
-        return JSON.stringify(asset);
+        console.log(result);
+        return JSON.stringify(result);
+    }
+
+
+    async _getAsset(ctx, id, collStr = ''){
+        const compKey = ctx.stub.createCompositeKey(assetObjectType,[id]);
+        
+        let assetBytes = null;
+        if(collStr === '') {
+            assetBytes = await ctx.stub.getState(compKey);
+        } else {
+            assetBytes = await ctx.stub.getPrivateData(collStr,compKey);
+        }
+
+        if(!assetBytes || assetBytes.length === 0) {
+            throw new Error(`Asset ${id} does not exists.`);
+        }
+
+        return JSON.parse(assetBytes.toString());
     }
 
     async _putState(ctx, stateType, obj, collString = '') {
+        console.log('Executing _PutState');
         const objType = (stateType === StateType.ASSET) ? assetObjectType : bidObjectType;
         console.log(objType);
         const compKey = ctx.stub.createCompositeKey(objType, [obj.id]);
         const stateObj = Buffer.from(JSON.stringify(obj));
         console.log("Composite Key - " + compKey + ", Value - " + stateObj);
         if(collString === '') {
+            console.log(`composite Key - ${compKey}, /Type - ${stateObj}`);
             await ctx.stub.putState(compKey,stateObj);
         } else {
-            await ctx.stub.putPrivateData(collString, compKey,stateObj);
+            console.log(`Collection - ${collString}, /composite Key - ${compKey}, /Type - ${stateObj}`);
+            await ctx.stub.putPrivateData(collString, compKey, stateObj);
         }
     }
 
-    async _isAssetExist(ctx, id){
-        const assetList = JSON.parse(await this.getListsFor(ctx,StateType.ASSET));
-        console.log(assetList.length);
-        let existsFlg = false;
-        let asset = null;
-        for (var i=0; i < assetList.length; i++){
-            console.log(`For ${id} and ${assetList[i].id} = ${id === assetList[i].id}`);
-            if(id === assetList[i].id){
-                existsFlg = true;
-                asset = assetList[i];
-                break;
-            }
+    async _isAssetExist(ctx, id, collStr = ''){
+        const compKey = ctx.stub.createCompositeKey(assetObjectType,[id]);
+        let assetBytes = null;
+        if(collStr === '') {
+            assetBytes = await ctx.stub.getState(compKey);
+        } else {
+            assetBytes = await ctx.stub.getPrivateData(collStr,compKey);
         }
-        return {Exists : existsFlg, Asset: asset};
+
+        return assetBytes && assetBytes.length > 0;
     }
 
     _getCollectionName(org1, org2) {

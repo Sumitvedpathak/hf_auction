@@ -45,6 +45,31 @@ class AuctionContract extends Contract {
         return "Bid Created Successfully!";
     }
 
+    async closeBiddingForAsset(ctx, id) {
+        const assetFlg = await this._isAssetExist(ctx, id);
+        if(!assetFlg) {
+            return new Error(`Asset ${id} does not exists.`);
+        }
+
+        const asset = await this._getDetailsFor(ctx, StateType.ASSET, id);
+        if(ctx.clientIdentity.getID() !== asset.seller) {
+            return new Error('You are not authorized to close the Bid.');
+        }
+
+        const bidList = JSON.parse(await this.getBidLists(ctx, asset.id));
+        if(bidList.length === 0){
+            asset.status = AssetStatus.WITHDRAW
+        } else {
+            bidList.sort((bid1, bid2) => bid2.price - bid1.price);
+            const bestBid = bids[0];
+
+        }
+
+
+
+
+    }
+
     async addAsset(ctx,id, assetName, lowestValue){
         const assetFlg = await this._isAssetExist(ctx, id)
         if(assetFlg){
@@ -94,7 +119,7 @@ class AuctionContract extends Contract {
         return JSON.stringify(result);
     }
 
-    async  getBidLists(ctx){
+    async  getBidLists(ctx, assetId = ''){
         let result = [];
         for (let i = 0; i < Participents.length; i++) {
             if(ctx.clientIdentity.getMSPID() === Participents[i]+'MSP') {
@@ -106,8 +131,13 @@ class AuctionContract extends Contract {
             for await(const itr of iterator) {
                 const bidVal = JSON.parse(itr.value.toString('utf8'));
                 if(ctx.clientIdentity.getMSPID() === bidVal.assetOrg) {
-                    console.log('Bid Object - '+ bidVal);
-                    result.push(bidVal);
+                    if(id === ''){
+                        console.log('Bid Object - '+ bidVal);
+                        result.push(bidVal);
+                    } else if( id === bidVal.assetId) {
+                        console.log('Bid Object - '+ bidVal);
+                        result.push(bidVal);
+                    }
                 }
             }
         }
@@ -115,9 +145,10 @@ class AuctionContract extends Contract {
         return JSON.stringify(result);
     }
 
+    async _getDetailsFor(ctx, stateType, id, collStr = ''){
+        const objType = (stateType === StateType.ASSET) ? assetObjectType : bidObjectType;
 
-    async _getAsset(ctx, id, collStr = ''){
-        const compKey = ctx.stub.createCompositeKey(assetObjectType,[id]);
+        const compKey = ctx.stub.createCompositeKey(objType,[id]);
         
         let assetBytes = null;
         if(collStr === '') {

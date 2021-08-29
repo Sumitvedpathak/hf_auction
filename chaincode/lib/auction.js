@@ -18,12 +18,12 @@ class AuctionContract extends Contract {
 
         console.log('Executing Bid function');
 
-        const assetFlg = await this._isAssetExist(ctx, id)
+        const assetFlg = await this._isAssetExist(ctx, assetId)
         if(!assetFlg){
-            throw new Error("Asset Id already exists");
+            throw new Error("Asset does not exists");
         }
 
-        const asset = await this._getAsset(ctx, assetId);
+        const asset = await this._getDetailsFor(ctx,StateType.ASSET, assetId);
         if(ctx.clientIdentity.getID() === asset.seller) {
             throw new Error(`Asset Owner cannot bid for its own Asset`);
         }
@@ -61,13 +61,13 @@ class AuctionContract extends Contract {
             asset.status = AssetStatus.WITHDRAW
         } else {
             bidList.sort((bid1, bid2) => bid2.price - bid1.price);
-            const bestBid = bids[0];
-
+            const bestBid = bidList[0];
+            asset.buyer = bestBid.bidder;
+            asset.buyingPrice = bestBid.value;
         }
 
-
-
-
+        await this._putState(ctx, StateType.ASSET, asset);
+        return `Biding closed successfully for asset ${asset.id}. The new owner of Asset is now ${asset.buyer} with last bidding price ${asset.buyingPrice}`;
     }
 
     async addAsset(ctx,id, assetName, lowestValue){
@@ -96,7 +96,7 @@ class AuctionContract extends Contract {
             throw new Error("Asset Id does not exists");
         }
 
-        const asset = await this._getAsset(ctx, id);
+        const asset = await this._getDetailsFor(ctx, StateType.ASSET, id);
 
         if(ctx.clientIdentity.getID() !== asset.Asset.seller) {
             throw new Error('Not authorize to withdraw. Only Sellet is authorized to withdraw')
@@ -131,10 +131,10 @@ class AuctionContract extends Contract {
             for await(const itr of iterator) {
                 const bidVal = JSON.parse(itr.value.toString('utf8'));
                 if(ctx.clientIdentity.getMSPID() === bidVal.assetOrg) {
-                    if(id === ''){
+                    if(assetId === ''){
                         console.log('Bid Object - '+ bidVal);
                         result.push(bidVal);
-                    } else if( id === bidVal.assetId) {
+                    } else if( assetId === bidVal.assetId) {
                         console.log('Bid Object - '+ bidVal);
                         result.push(bidVal);
                     }

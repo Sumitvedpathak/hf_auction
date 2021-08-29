@@ -10,7 +10,8 @@ const AssetStatus = Object.freeze({
     SALE: "Sale", SOLD: "Sold", WITHDRAW: "Withdraw"
 });
 
-const Participents = ["Org1","Org2","Org3"];
+// const Participents = ["Org1","Org2","Org3"];
+const Participents = ["Org1","Org2"];
 
 class AuctionContract extends Contract {
 
@@ -46,6 +47,7 @@ class AuctionContract extends Contract {
     }
 
     async closeBiddingForAsset(ctx, id) {
+        let statusMsg = '';
         const assetFlg = await this._isAssetExist(ctx, id);
         if(!assetFlg) {
             return new Error(`Asset ${id} does not exists.`);
@@ -59,15 +61,17 @@ class AuctionContract extends Contract {
         const bidList = JSON.parse(await this.getBidLists(ctx, asset.id));
         if(bidList.length === 0){
             asset.status = AssetStatus.WITHDRAW
+            statusMsg = `Biding closed successfully for asset ${asset.id} as there was no bidder who bid the asset. `;
         } else {
             bidList.sort((bid1, bid2) => bid2.price - bid1.price);
             const bestBid = bidList[0];
             asset.buyer = bestBid.bidder;
             asset.buyingPrice = bestBid.value;
+            statusMsg = `Biding closed successfully for asset ${asset.id}. The new owner of Asset is now ${asset.buyer} with last bidding price ${asset.buyingPrice}`;
         }
 
         await this._putState(ctx, StateType.ASSET, asset);
-        return `Biding closed successfully for asset ${asset.id}. The new owner of Asset is now ${asset.buyer} with last bidding price ${asset.buyingPrice}`;
+        return statusMsg;
     }
 
     async addAsset(ctx,id, assetName, lowestValue){
@@ -97,8 +101,8 @@ class AuctionContract extends Contract {
         }
 
         const asset = await this._getDetailsFor(ctx, StateType.ASSET, id);
-
-        if(ctx.clientIdentity.getID() !== asset.Asset.seller) {
+        console.log(asset);
+        if(ctx.clientIdentity.getID() !== asset.seller) {
             throw new Error('Not authorize to withdraw. Only Sellet is authorized to withdraw')
         }
 
@@ -127,19 +131,20 @@ class AuctionContract extends Contract {
             }
             const collStr = this._getCollectionName(ctx.clientIdentity.getMSPID(),Participents[i]+'MSP');
             console.log('Collection String for - '+collStr);
-            let iterator  = ctx.stub.getPrivateDataByPartialCompositeKey(collStr,bidObjectType,[]);
-            for await(const itr of iterator) {
-                const bidVal = JSON.parse(itr.value.toString('utf8'));
-                if(ctx.clientIdentity.getMSPID() === bidVal.assetOrg) {
-                    if(assetId === ''){
-                        console.log('Bid Object - '+ bidVal);
-                        result.push(bidVal);
-                    } else if( assetId === bidVal.assetId) {
-                        console.log('Bid Object - '+ bidVal);
-                        result.push(bidVal);
-                    }
-                }
-            }
+            result.push(await ctx.stub.getPrivateData(collStr,bidObjectType));
+            // let iterator  = ctx.stub.getPrivateDataByPartialCompositeKey(collStr,bidObjectType,[]);
+            // for await(const itr of iterator) {
+            //     const bidVal = JSON.parse(itr.value.toString('utf8'));
+            //     if(ctx.clientIdentity.getMSPID() === bidVal.assetOrg) {
+            //         if(assetId === ''){
+            //             console.log('Bid Object - '+ bidVal);
+            //             result.push(bidVal);
+            //         } else if( assetId === bidVal.assetId) {
+            //             console.log('Bid Object - '+ bidVal);
+            //             result.push(bidVal);
+            //         }
+            //     }
+            // }
         }
         console.log(result);
         return JSON.stringify(result);

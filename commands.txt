@@ -6,7 +6,7 @@ cd ./addOrg3
 
 cd ..
 
-./network.sh deployCC -ccn auction -ccv 1.0 -ccp ../proj/hf_auction/chaincode -ccl javascript  -cccg ../proj/hf_auction/chaincode/collection/config.json -ccep "OR('Org1MSP.member','Org2MSP.member','Org3MSP.member')"
+./network.sh deployCC -ccn auction -ccv 1.0 -ccp ../proj/hf_auction/chaincode -ccl javascript  -cccg ../proj/hf_auction/chaincode/collection/config1.json -ccep "OR('Org1MSP.member','Org2MSP.member','Org3MSP.member')"
 
 export PATH=${PWD}/../bin:$PATH
 export FABRIC_CFG_PATH=$PWD/../config/

@@ -47,9 +47,9 @@ peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org
 
 peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"getAssetLists","Args":["Asset"]}'
 
-peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"bid","Args":["1","1","55"]}'
+peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"getBidLists","Args":["1"]}'
 
-peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"getBidLists","Args":[]}'
+peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"bid","Args":["1","1","55"]}'
 
 peer chaincode invoke ${orderer} -C mychannel -n auction ${peer_org1} ${peer_org2} -c '{"function":"closeBiddingForAsset","Args":["1"]}'
 

@@ -25,6 +25,7 @@ class AuctionContract extends Contract {
         }
 
         const asset = await this._getDetailsFor(ctx,StateType.ASSET, assetId);
+        console.log('Asset - '+asset);
         if(ctx.clientIdentity.getID() === asset.seller) {
             throw new Error(`Asset Owner cannot bid for its own Asset`);
         }
@@ -40,6 +41,7 @@ class AuctionContract extends Contract {
             assetOrg : asset.organization,
             value : value
         };
+        console.log('Bid object - '+bid);
 
         const collStr = this._getCollectionName(asset.organization, bid.organization);
         await this._putState(ctx, StateType.BID, bid, collStr);
@@ -47,6 +49,7 @@ class AuctionContract extends Contract {
     }
 
     async closeBiddingForAsset(ctx, id) {
+        console.log('Executing closeBiddingForAsset')
         let statusMsg = '';
         const assetFlg = await this._isAssetExist(ctx, id);
         if(!assetFlg) {
@@ -54,23 +57,28 @@ class AuctionContract extends Contract {
         }
 
         const asset = await this._getDetailsFor(ctx, StateType.ASSET, id);
+        console.log(`Asset Exists - ${asset}`);
         if(ctx.clientIdentity.getID() !== asset.seller) {
             return new Error('You are not authorized to close the Bid.');
         }
 
-        const bidList = JSON.parse(await this.getBidLists(ctx, asset.id));
+         const bidList = await this.getBidLists(ctx, asset.id);
+        console.log('Bid LIst - '+bidList+'----- Bid list length - '+ bidList.length+'-----------Obj - '+ bidList[0]);
         if(bidList.length === 0){
             asset.status = AssetStatus.WITHDRAW
             statusMsg = `Biding closed successfully for asset ${asset.id} as there was no bidder who bid the asset. `;
-        } else {
+        }
+        else {
             bidList.sort((bid1, bid2) => bid2.price - bid1.price);
             const bestBid = bidList[0];
             asset.buyer = bestBid.bidder;
             asset.buyingPrice = bestBid.value;
+            asset.status = AssetStatus.SOLD;
             statusMsg = `Biding closed successfully for asset ${asset.id}. The new owner of Asset is now ${asset.buyer} with last bidding price ${asset.buyingPrice}`;
         }
-
+        console.log('Asset to update object - '+asset);
         await this._putState(ctx, StateType.ASSET, asset);
+        console.log('Ending closeBiddingForAsset')
         return statusMsg;
     }
 
@@ -124,6 +132,7 @@ class AuctionContract extends Contract {
     }
 
     async  getBidLists(ctx, assetId = ''){
+        console.log('Executing getBidLists');
         let result = [];
         for (let i = 0; i < Participents.length; i++) {
             if(ctx.clientIdentity.getMSPID() === Participents[i]+'MSP') {
@@ -131,7 +140,6 @@ class AuctionContract extends Contract {
             }
             const collStr = this._getCollectionName(ctx.clientIdentity.getMSPID(),Participents[i]+'MSP');
             console.log('Collection String for - '+collStr);
-            result.push(await ctx.stub.getPrivateData(collStr,bidObjectType));
             // let iterator  = ctx.stub.getPrivateDataByPartialCompositeKey(collStr,bidObjectType,[]);
             // for await(const itr of iterator) {
             //     const bidVal = JSON.parse(itr.value.toString('utf8'));
@@ -145,9 +153,17 @@ class AuctionContract extends Contract {
             //         }
             //     }
             // }
+            const assetCompKey = ctx.stub.createCompositeKey(assetObjectType,[assetId]);
+            console.log('Composite Key - '+ assetCompKey);
+            const prvtData = await ctx.stub.getPrivateData(collStr,assetCompKey)
+            console.log('Private Data - '+ prvtData);
+            if(!prvtData || prvtData.length === 0){
+                return result;
+            }
+            result.push(JSON.parse(prvtData.toString()));
         }
-        console.log(result);
-        return JSON.stringify(result);
+        console.log('Result obj - '+result);
+        return result;
     }
 
     async _getDetailsFor(ctx, stateType, id, collStr = ''){
@@ -156,9 +172,12 @@ class AuctionContract extends Contract {
         const compKey = ctx.stub.createCompositeKey(objType,[id]);
         
         let assetBytes = null;
+        collStr = collStr || '';
         if(collStr === '') {
+            console.log('GetState - '+compKey);
             assetBytes = await ctx.stub.getState(compKey);
         } else {
+            console.log('PrivateData - '+compKey);
             assetBytes = await ctx.stub.getPrivateData(collStr,compKey);
         }
 
@@ -172,17 +191,19 @@ class AuctionContract extends Contract {
     async _putState(ctx, stateType, obj, collString = '') {
         console.log('Executing _PutState');
         const objType = (stateType === StateType.ASSET) ? assetObjectType : bidObjectType;
-        console.log(objType);
-        const compKey = ctx.stub.createCompositeKey(objType, [obj.id]);
+        console.log('ObjectType - '+objType);
+        let compKey = '';
         const stateObj = Buffer.from(JSON.stringify(obj));
-        console.log("Composite Key - " + compKey + ", Value - " + stateObj);
         if(collString === '') {
-            console.log(`composite Key - ${compKey}, /Type - ${stateObj}`);
+            compKey = ctx.stub.createCompositeKey(objType, [obj.id]);
+            console.log(`composite Key - ${compKey}, /Value - ${stateObj}`);
             await ctx.stub.putState(compKey,stateObj);
         } else {
-            console.log(`Collection - ${collString}, /composite Key - ${compKey}, /Type - ${stateObj}`);
+            compKey = ctx.stub.createCompositeKey(objType, [obj.assetId]);
+            console.log(`Collection - ${collString}, /composite Key - ${compKey}, /Value - ${stateObj}`);
             await ctx.stub.putPrivateData(collString, compKey, stateObj);
         }
+        console.log('Exiting _PutState');
     }
 
     async _isAssetExist(ctx, id, collStr = ''){

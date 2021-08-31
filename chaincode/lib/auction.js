@@ -26,33 +26,17 @@ class AuctionContract extends Contract{
         return `Asset ${name} is now open for bidding`;
     }
 
-    async addAsset(ctx, id, name, startingPrice) {
-        console.log('Executing addAsset');
-
-        const minBid = parseFloat(startingPrice);
-        const asset = {
-            id : id,
-            name : name,
-            seller : ctx.clientIdentity.getID(),
-            organization: ctx.clientIdentity.getMSPID(),
-            status : AssetStatus.SALE,
-            startingPrice : minBid
-        };
-
-        await this._put(ctx,AuctionType.ASSET,id,asset);
-        return `Asset ${name} is now open for bidding`;
-    }
-
     async getAssets(ctx, status = ''){
         console.log(`Executing getAsset for ${status}`);
         let resultSet = [];
-        const listObj = await this._getList(ctx, AuctionType.ASSET);
+        const listObj = JSON.parse(await this._getList(ctx, AuctionType.ASSET, status));
         status = status || '';
         console.log(`Status = ${status}, Length = ${listObj.length}`);
         for(let i=0; i<listObj.length; i++){
             if (status === ''){
+                console.log(`Obj - ${listObj[i].toString()}`)
                 resultSet.push(listObj[i]);
-            } else if(status.toLower() === listObj[i].status.toLower()){
+            } else if(status === listObj[i].status){
                 resultSet.push(listObj[i]);
             }  
         }
@@ -61,11 +45,14 @@ class AuctionContract extends Contract{
     }
 
     async isExists(ctx, auctionType, id){
+        console.log("Executing IsExists");
         const asset = await this._get(ctx,auctionType,id);
+        // console.log(`AssetObject - ${JSON.parse(asset)}`);
+        console.log(`Length ${Object.keys(asset).length}`);
         return !Object.keys(asset).length;
     }
 
-    async _getList(ctx, auctionType) {
+    async _getList(ctx, auctionType, assetStatus='') {
         console.log(`Executing _getList for ${auctionType}`);
         
         let returnResult = [];
@@ -73,7 +60,6 @@ class AuctionContract extends Contract{
             const listIterator = ctx.stub.getStateByPartialCompositeKey(assetObjType,[]);
             for await (const obj of listIterator) {
                 const asset = JSON.parse(obj.value.toString())
-                console.log(`Iterator asset - ${asset}`);
                 returnResult.push(asset);
             }
         } else {}

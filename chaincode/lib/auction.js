@@ -34,7 +34,7 @@ class AuctionContract extends Contract {
         }
 
         const bid = {
-            id: id,
+            id: ctx.clientIdentity.getMSPID()+id,
             assetId:assetId,
             bidder : ctx.clientIdentity.getID(),
             organization: ctx.clientIdentity.getMSPID(),
@@ -73,7 +73,7 @@ class AuctionContract extends Contract {
             for (let j=1; j<=10; j++){
                 try{
                     console.log(`Executing for id ${j}`);
-                    const bid = await this._getDetailsFor(ctx,StateType.BID,j.toString(),collStr);
+                    const bid = await this._getDetailsFor(ctx,StateType.BID,Participents[i]+'MSP'+j.toString(),collStr);
                     console.log(`Bid obj - ${bid}`);
                     bidList.push(bid);
                 } catch(error){

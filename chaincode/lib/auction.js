@@ -10,13 +10,13 @@ const AssetStatus = Object.freeze({
     SALE: "Sale", SOLD: "Sold", WITHDRAW: "Withdraw"
 });
 
-// const Participents = ["Org1","Org2","Org3"];
-const Participents = ["Org1","Org2"];
+const Participents = ["Org1","Org2","Org3"];
+// const Participents = ["Org1","Org2"];
 
 class AuctionContract extends Contract {
 
-    async bid(ctx, id, assetId, value){
-
+    async bid(ctx, id, assetId, price){
+        const value = parseFloat(price);
         console.log('Executing Bid function');
 
         const assetFlg = await this._isAssetExist(ctx, assetId)
@@ -62,15 +62,34 @@ class AuctionContract extends Contract {
             return new Error('You are not authorized to close the Bid.');
         }
 
-         const bidList = await this.getBidLists(ctx, asset.id);
+        // const bidList = await this.getBidLists(ctx, asset.id);
+        const bidList = [];
+        for (let i = 0; i < Participents.length; i++) {
+            if(ctx.clientIdentity.getMSPID() === Participents[i]+'MSP') {
+                continue;
+            }
+            const collStr = this._getCollectionName(ctx.clientIdentity.getMSPID(),Participents[i]+'MSP');
+            console.log('Collection String for - '+collStr);
+            for (let j=1; j<=10; j++){
+                try{
+                    console.log(`Executing for id ${j}`);
+                    const bid = await this._getDetailsFor(ctx,StateType.BID,j.toString(),collStr);
+                    console.log(`Bid obj - ${bid}`);
+                    bidList.push(bid);
+                } catch(error){
+                    j=11;
+                }
+            }
+        }
         console.log('Bid LIst - '+bidList+'----- Bid list length - '+ bidList.length+'-----------Obj - '+ bidList[0]);
         if(bidList.length === 0){
             asset.status = AssetStatus.WITHDRAW
             statusMsg = `Biding closed successfully for asset ${asset.id} as there was no bidder who bid the asset. `;
         }
         else {
-            bidList.sort((bid1, bid2) => bid2.price - bid1.price);
+            bidList.sort((bid1, bid2) => bid2.value - bid1.value);
             const bestBid = bidList[0];
+            console.log(`Best Bid - ${JSON.stringify(bestBid)}`)
             asset.buyer = bestBid.bidder;
             asset.buyingPrice = bestBid.value;
             asset.status = AssetStatus.SOLD;
@@ -145,10 +164,10 @@ class AuctionContract extends Contract {
                 const bidVal = JSON.parse(itr.value.toString('utf8'));
                 if(ctx.clientIdentity.getMSPID() === bidVal.assetOrg) {
                     if(assetId === ''){
-                        console.log('Bid Object - '+ bidVal);
+                        console.log('Bid Object - '+ JSON.stringify(bidVal));
                         result.push(bidVal);
                     } else if( assetId === bidVal.assetId) {
-                        console.log('Bid Object - '+ bidVal);
+                        console.log('Bid Object - '+ JSON.stringify(bidVal));
                         result.push(bidVal);
                     }
                 }
@@ -168,10 +187,11 @@ class AuctionContract extends Contract {
     }
 
     async _getDetailsFor(ctx, stateType, id, collStr = ''){
+        console.log(`Executing _getDetailsFor ${stateType} and ${id}`);
         const objType = (stateType === StateType.ASSET) ? assetObjectType : bidObjectType;
 
         const compKey = ctx.stub.createCompositeKey(objType,[id]);
-        
+        console.log(`Type - ${objType}, Comp Key - ${compKey}, COllection = ${collStr}`);
         let assetBytes = null;
         collStr = collStr || '';
         if(collStr === '') {

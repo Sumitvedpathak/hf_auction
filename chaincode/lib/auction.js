@@ -41,7 +41,7 @@ class AuctionContract extends Contract {
             assetOrg : asset.organization,
             value : value
         };
-        console.log('Bid object - '+bid);
+        console.log('Bid id - '+bid.id);
 
         const collStr = this._getCollectionName(asset.organization, bid.organization);
         await this._putState(ctx, StateType.BID, bid, collStr);
@@ -69,13 +69,14 @@ class AuctionContract extends Contract {
                 continue;
             }
             const collStr = this._getCollectionName(ctx.clientIdentity.getMSPID(),Participents[i]+'MSP');
-            console.log('Collection String for - '+collStr);
+            // console.log('Collection String for - '+collStr);
             for (let j=1; j<=10; j++){
                 try{
-                    console.log(`Executing for id ${j}`);
+                    console.log(`Executing for id ${Participents[i]+'MSP'+j.toString()}`);
                     const bid = await this._getDetailsFor(ctx,StateType.BID,Participents[i]+'MSP'+j.toString(),collStr);
-                    console.log(`Bid obj - ${bid}`);
-                    bidList.push(bid);
+                    if(bid.assetId === id){
+                        bidList.push(bid);
+                    }
                 } catch(error){
                     j=11;
                 }
@@ -220,6 +221,7 @@ class AuctionContract extends Contract {
             console.log(`composite Key - ${compKey}, /Value - ${stateObj}`);
             await ctx.stub.putState(compKey,stateObj);
         } else {
+            console.log(`ID - ${obj.id}`)
             compKey = ctx.stub.createCompositeKey(objType, [obj.id]);
             console.log(`Collection - ${collString}, /composite Key - ${compKey}, /Value - ${stateObj}`);
             await ctx.stub.putPrivateData(collString, compKey, stateObj);

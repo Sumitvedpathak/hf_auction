@@ -34,7 +34,7 @@ class AuctionContract extends Contract {
         }
 
         const bid = {
-            id: ctx.clientIdentity.getMSPID()+id,
+            id: id,
             assetId:assetId,
             bidder : ctx.clientIdentity.getID(),
             organization: ctx.clientIdentity.getMSPID(),
@@ -69,11 +69,10 @@ class AuctionContract extends Contract {
                 continue;
             }
             const collStr = this._getCollectionName(ctx.clientIdentity.getMSPID(),Participents[i]+'MSP');
-            // console.log('Collection String for - '+collStr);
             for (let j=1; j<=10; j++){
                 try{
                     console.log(`Executing for id ${Participents[i]+'MSP'+j.toString()}`);
-                    const bid = await this._getDetailsFor(ctx,StateType.BID,Participents[i]+'MSP'+j.toString(),collStr);
+                    const bid = await this._getDetailsFor(ctx,StateType.BID,j.toString(),collStr);
                     if(bid.assetId === id){
                         bidList.push(bid);
                     }
@@ -90,7 +89,6 @@ class AuctionContract extends Contract {
         else {
             bidList.sort((bid1, bid2) => bid2.value - bid1.value);
             const bestBid = bidList[0];
-            console.log(`Best Bid - ${JSON.stringify(bestBid)}`)
             asset.buyer = bestBid.bidder;
             asset.buyingPrice = bestBid.value;
             asset.status = AssetStatus.SOLD;
